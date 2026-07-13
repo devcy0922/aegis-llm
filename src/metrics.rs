@@ -16,6 +16,7 @@ struct InnerMetrics {
     requests_total: AtomicU64,
     blocked_total: AtomicU64,
     upstream_errors_total: AtomicU64,
+    fallback_total: AtomicU64,
 }
 
 impl GatewayMetrics {
@@ -31,6 +32,10 @@ impl GatewayMetrics {
         self.inner
             .upstream_errors_total
             .fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_fallback(&self) {
+        self.inner.fallback_total.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn render_prometheus(&self) -> String {
@@ -51,6 +56,14 @@ impl GatewayMetrics {
             metric(
                 "aegis_upstream_errors_total",
                 self.inner.upstream_errors_total.load(Ordering::Relaxed)
+            )
+        );
+        let _ = writeln!(
+            out,
+            "# HELP aegis_fallback_total Total fallback provider switches\n# TYPE aegis_fallback_total counter\n{}",
+            metric(
+                "aegis_fallback_total",
+                self.inner.fallback_total.load(Ordering::Relaxed)
             )
         );
         out

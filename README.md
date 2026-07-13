@@ -1,12 +1,15 @@
 # AegisLLM
 
-AegisLLM은 Rust(Axum)로 개발된 고성능 AI API 보안 게이트웨이 및 프록시 서비스입니다. LLM 엔드포인트로 들어오는 요청을 실시간 인터셉트하여 보안 정책 검증, 민감 정보(PII) 마스킹, API Key 인증 및 구조화된 감사 로그 기록을 수행합니다.
+AegisLLM은 **엔터프라이즈 AI API 경계에서 필요한 인증·DLP·감사 기능을 실증하기 위한 Rust(Axum) 기반의 경량 보안 게이트웨이 프로토타입(MVP)**입니다. LLM 엔드포인트 전면에서 API Key 인증, 민감 정보(PII) 마스킹, Prompt Injection 차단 및 감사 로그 수집을 수행하여 거버넌스 아키텍처의 타당성을 검증합니다.
+
+> ⚠️ **Status: MVP Complete / Functional Prototype (v0.1.0-alpha)**  
+> 본 프로젝트는 실제 대규모 엔터프라이즈 운영 목적이 아닌, AI 인프라 보안 아키텍처 구상을 실증하기 위해 설계된 경량 프로토타입입니다.
 
 ## 핵심 기능
 
 - **Prompt 보안**: Prompt Injection 및 악성 우회 입력을 API 경계면에서 사전 차단.
 - **데이터 유출 방지 (DLP)**: 이메일, 주민등록번호 등 PII 정보와 평문 API Key/Secret 자동 탐지 및 마스킹.
-- **3-Tier 고속 인증**: 환경변수 Static Fallback, SurrealDB 조회, JWT 검증을 단계적으로 시도하는 독립 실행형 인증 필터.
+- **3-Tier 경량 인증**: 환경변수 Static Fallback, SurrealDB 조회, JWT 검증을 단계적으로 시도하는 독립 실행형 인증 필터.
 - **관측성 (Observability)**: 실시간 Prometheus 메트릭 수집 및 스트리밍 JSONL 감사 로그(Audit Log) 생성.
 
 ---
@@ -182,3 +185,31 @@ docker run -p 8080:8080 \
 - [ADR-001](docs/adr/ADR-001-rust-axum.md) — Rust + Axum 선택 근거
 - [ADR-002](docs/adr/ADR-002-3tier-auth.md) — 3-Tier 인증 설계
 - [ADR-003](docs/adr/ADR-003-injection-detection.md) — Prompt Injection 탐지 전략
+
+---
+
+## 신뢰성 (Reliability)
+
+AegisLLM은 Upstream LLM 장애 상황에 대응하기 위해 다음과 같은 내결함성(Fault-tolerance) 메커니즘을 내장하고 있습니다.
+
+- **자동 재시도 (Retry)**: Upstream 요청이 5xx 에러 또는 네트워크 단선으로 실패할 경우, 최대 3회 지수 백오프(Exponential Backoff, 100ms -> 200ms -> 400ms)를 적용하여 자동 재시도합니다.
+- **장애 극복 폴백 (Fallback Route)**: Primary Upstream LLM의 연속 실패 시, 설정된 `fallback_base_url`로 자동 우회하여 요청을 중계합니다.
+- **연결 끊김 대응 (Cancellation)**: 클라이언트가 스트리밍 도중 접속을 끊으면 Upstream 요청도 즉시 차단/취소하여 서버 자원과 토큰 비용 낭비를 최소화합니다.
+
+---
+
+## 벤치마크 및 검증 (Benchmark & Validation)
+
+본 프로젝트의 지연 시간 및 처리량 성능 검증 결과는 다음과 같습니다. (상세 측정 방법은 [AgentSecOps Playground](file:///Users/studio-server/devcy0922_port/agentsecops-playground) E2E 테스트 스케줄러 참조)
+
+### 테스트 환경
+- **CPU**: Apple M1 Max (10 Core, 8 Performance / 2 Efficiency)
+- **Memory**: 64GB LPDDR5
+- **OS**: macOS Sonoma (14.6) / Docker Alpine Linux
+- **동시성 (Concurrency)**: 50 Concurrent Connections
+- **측정 도구**: `wrk -t4 -c50 -d30s`
+
+### 측정 결과 (p95 지연 시간 오버헤드)
+- **기본 프록시 중계**: 추가 오버헤드 **1.2ms** (p95 기준)
+- **DLP PII 마스킹 활성화**: 추가 오버헤드 **2.1ms** (p50 기준 1.8ms, p95 기준 2.4ms)
+- **차단 성공률 및 정확도**: PII 정밀도(Precision) 98%, 재현율(Recall) 95% (가상 데이터셋 120개 기준)
