@@ -89,6 +89,10 @@ pub struct UpstreamConfig {
     pub api_key: Option<String>,
     #[serde(default = "default_timeout")]
     pub timeout_seconds: u64,
+    #[serde(default)]
+    pub fallback_base_url: Option<String>,
+    #[serde(default)]
+    pub fallback_api_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -202,6 +206,18 @@ impl GatewayConfig {
         if let Ok(upstream_url) = std::env::var("GOVAIL_UPSTREAM_URL") {
             if !upstream_url.is_empty() {
                 cfg.upstream.base_url = upstream_url;
+            }
+        }
+
+        if let Ok(fallback_url) = std::env::var("GOVAIL_FALLBACK_UPSTREAM_URL") {
+            if !fallback_url.is_empty() {
+                cfg.upstream.fallback_base_url = Some(fallback_url);
+            }
+        }
+
+        if let Ok(fallback_key) = std::env::var("GOVAIL_FALLBACK_API_KEY") {
+            if !fallback_key.is_empty() {
+                cfg.upstream.fallback_api_key = Some(fallback_key);
             }
         }
 

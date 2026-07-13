@@ -16,33 +16,126 @@ use crate::config::GatewayConfig;
 pub struct ProxyClient {
     config: Arc<GatewayConfig>,
     client: reqwest::Client,
+    metrics: crate::metrics::GatewayMetrics,
 }
 
 impl ProxyClient {
-    pub fn new(config: Arc<GatewayConfig>) -> anyhow::Result<Self> {
+    pub fn new(config: Arc<GatewayConfig>, metrics: crate::metrics::GatewayMetrics) -> anyhow::Result<Self> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(config.upstream.timeout_seconds))
             .build()?;
-        Ok(Self { config, client })
+        Ok(Self { config, client, metrics })
+    }
+
+    async fn send_with_retry_and_fallback(
+        &self,
+        method: Method,
+        path: &str,
+        payload: Option<&Value>,
+        trace_id: &str,
+        principal: Option<&crate::auth::Principal>,
+    ) -> Result<reqwest::Response, ProxyError> {
+        let max_retries = 3;
+        let mut attempt = 0;
+        let primary_url = upstream_url(&self.config.upstream.base_url, path)?;
+        let primary_key = self.config.upstream.api_key.as_deref().unwrap_or("");
+        let mut last_error = None;
+
+        loop {
+            attempt += 1;
+            let mut request = self.client.request(method.clone(), primary_url.clone())
+                .header("X-Aegis-Trace-Id", trace_id);
+            if let Some(pr) = principal {
+                request = request
+                    .header("X-User-Id", &pr.key_id)
+                    .header("X-User-Name", &pr.project)
+                    .header("X-User-Role", &pr.role);
+            }
+            if !primary_key.is_empty() {
+                request = request.bearer_auth(primary_key);
+            }
+            if let Some(ref payload) = payload {
+                request = request.json(payload);
+            }
+
+            match request.send().await {
+                Ok(resp) => {
+                    let status = resp.status();
+                    if status.is_success() || status.is_redirection() || status.is_client_error() {
+                        return Ok(resp);
+                    } else {
+                        last_error = Some(ProxyError::InvalidUrl(format!("upstream returned status: {status}")));
+                    }
+                }
+                Err(err) => {
+                    last_error = Some(ProxyError::Upstream(err));
+                }
+            }
+
+            if attempt >= max_retries {
+                break;
+            }
+            let sleep_dur = Duration::from_millis(100 * (1 << (attempt - 1)));
+            tokio::time::sleep(sleep_dur).await;
+        }
+
+        if let Some(ref fallback_base) = self.config.upstream.fallback_base_url {
+            self.metrics.record_fallback();
+            let fallback_url = upstream_url(fallback_base, path)?;
+            let fallback_key = self.config.upstream.fallback_api_key.as_deref().unwrap_or("");
+            attempt = 0;
+            loop {
+                attempt += 1;
+                let mut request = self.client.request(method.clone(), fallback_url.clone())
+                    .header("X-Aegis-Trace-Id", trace_id)
+                    .header("X-Aegis-Fallback-Used", "true");
+                if let Some(pr) = principal {
+                    request = request
+                        .header("X-User-Id", &pr.key_id)
+                        .header("X-User-Name", &pr.project)
+                        .header("X-User-Role", &pr.role);
+                }
+                if !fallback_key.is_empty() {
+                    request = request.bearer_auth(fallback_key);
+                }
+                if let Some(ref payload) = payload {
+                    request = request.json(payload);
+                }
+
+                match request.send().await {
+                    Ok(resp) => {
+                        let status = resp.status();
+                        if status.is_success() || status.is_redirection() || status.is_client_error() {
+                            return Ok(resp);
+                        } else {
+                            last_error = Some(ProxyError::InvalidUrl(format!("fallback upstream returned status: {status}")));
+                        }
+                    }
+                    Err(err) => {
+                        last_error = Some(ProxyError::Upstream(err));
+                    }
+                }
+
+                if attempt >= max_retries {
+                    break;
+                }
+                let sleep_dur = Duration::from_millis(100 * (1 << (attempt - 1)));
+                tokio::time::sleep(sleep_dur).await;
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| ProxyError::InvalidUrl("request failed without reason".to_string())))
     }
 
     pub async fn proxy_models(&self, trace_id: &str) -> Result<Response<Body>, ProxyError> {
-        let url = format!(
-            "{}/v1/models",
-            self.config.upstream.base_url.trim_end_matches('/')
-        );
-        let api_key = self.config.upstream.api_key.as_deref().unwrap_or("");
-        let res = match self
-            .client
-            .get(&url)
-            .header("Authorization", format!("Bearer {api_key}"))
-            .header("X-Aegis-Trace-Id", trace_id)
-            .send()
-            .await
-        {
-            Ok(res) => res,
-            Err(err) => return Err(ProxyError::Upstream(err)),
-        };
+        let res = self.send_with_retry_and_fallback(
+            Method::GET,
+            "/v1/models",
+            None,
+            trace_id,
+            None,
+        )
+        .await?;
 
         if !res.status().is_success() {
             return Err(ProxyError::InvalidUrl(format!(
@@ -121,28 +214,14 @@ impl ProxyClient {
         model: Option<String>,
         principal: Option<crate::auth::Principal>,
     ) -> Result<Response<Body>, ProxyError> {
-        let url = upstream_url(&self.config.upstream.base_url, "/v1/chat/completions")?;
-        let mut request = self
-            .client
-            .request(Method::POST, url)
-            .header("X-Aegis-Trace-Id", trace_id);
-
-        if let Some(ref pr) = principal {
-            request = request
-                .header("X-User-Id", &pr.key_id)
-                .header("X-User-Name", &pr.project)
-                .header("X-User-Role", &pr.role);
-        }
-
-        if let Some(key) = &self.config.upstream.api_key {
-            if !key.trim().is_empty() {
-                request = request.bearer_auth(key);
-            }
-        }
-
-        request = request.json(&payload);
-
-        let response = request.send().await.map_err(ProxyError::Upstream)?;
+        let response = self.send_with_retry_and_fallback(
+            Method::POST,
+            "/v1/chat/completions",
+            Some(&payload),
+            trace_id,
+            principal.as_ref(),
+        )
+        .await?;
         let status = response.status();
         let headers = response.headers().clone();
 
@@ -210,30 +289,14 @@ impl ProxyClient {
         principal: Option<crate::auth::Principal>,
         langfuse_record: Option<crate::langfuse::LangfuseRecord>,
     ) -> Result<Response<Body>, ProxyError> {
-        let url = upstream_url(&self.config.upstream.base_url, path)?;
-        let mut request = self
-            .client
-            .request(method, url)
-            .header("X-Aegis-Trace-Id", trace_id);
-
-        if let Some(ref pr) = principal {
-            request = request
-                .header("X-User-Id", &pr.key_id)
-                .header("X-User-Name", &pr.project)
-                .header("X-User-Role", &pr.role);
-        }
-
-        if let Some(key) = &self.config.upstream.api_key {
-            if !key.trim().is_empty() {
-                request = request.bearer_auth(key);
-            }
-        }
-
-        if let Some(payload) = payload {
-            request = request.json(&payload);
-        }
-
-        let response = request.send().await.map_err(ProxyError::Upstream)?;
+        let response = self.send_with_retry_and_fallback(
+            method,
+            path,
+            payload.as_ref(),
+            trace_id,
+            principal.as_ref(),
+        )
+        .await?;
         let status = response.status();
         let headers = response.headers().clone();
 
@@ -274,30 +337,14 @@ impl ProxyClient {
         trace_id: &str,
         principal: Option<crate::auth::Principal>,
     ) -> Result<ProxyJsonResponse, ProxyError> {
-        let url = upstream_url(&self.config.upstream.base_url, path)?;
-        let mut request = self
-            .client
-            .request(method, url)
-            .header("X-Aegis-Trace-Id", trace_id);
-
-        if let Some(ref pr) = principal {
-            request = request
-                .header("X-User-Id", &pr.key_id)
-                .header("X-User-Name", &pr.project)
-                .header("X-User-Role", &pr.role);
-        }
-
-        if let Some(key) = &self.config.upstream.api_key {
-            if !key.trim().is_empty() {
-                request = request.bearer_auth(key);
-            }
-        }
-
-        if let Some(payload) = payload {
-            request = request.json(&payload);
-        }
-
-        let response = request.send().await.map_err(ProxyError::Upstream)?;
+        let response = self.send_with_retry_and_fallback(
+            method,
+            path,
+            payload.as_ref(),
+            trace_id,
+            principal.as_ref(),
+        )
+        .await?;
         let status = response.status();
         let headers = response.headers().clone();
         let body = response.bytes().await.map_err(ProxyError::Upstream)?;

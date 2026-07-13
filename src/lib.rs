@@ -39,13 +39,14 @@ pub struct AppState {
 impl AppState {
     pub fn new(config: GatewayConfig) -> anyhow::Result<Self> {
         let config = Arc::new(config);
+        let metrics = GatewayMetrics::default();
         Ok(Self {
-            proxy: ProxyClient::new(config.clone())?,
+            proxy: ProxyClient::new(config.clone(), metrics.clone())?,
             router: RouterClient::new(config.clone())?,
             audit: AuditLogger::new(config.security.audit_log_path.clone()),
             langfuse: LangfuseClient::new(config.clone()),
             memory: MemoryClient::new(config.clone())?,
-            metrics: GatewayMetrics::default(),
+            metrics,
             limiter: auth::RateLimiter::default(),
             db_client: reqwest::Client::new(),
             project_secrets: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
