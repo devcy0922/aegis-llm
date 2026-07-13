@@ -267,7 +267,7 @@ impl GatewayConfig {
                 let user = std::env::var("SURREAL_DB_USER").unwrap_or_else(|_| "root".to_string());
                 let pass = std::env::var("SURREAL_DB_PASS").unwrap_or_else(|_| "root".to_string());
                 let namespace =
-                    std::env::var("SURREAL_DB_NS").unwrap_or_else(|_| "govail".to_string());
+                    std::env::var("SURREAL_DB_NS").unwrap_or_else(|_| "aegis".to_string());
                 let database =
                     std::env::var("SURREAL_DB_NAME").unwrap_or_else(|_| "analyzer".to_string());
                 cfg.database = Some(DatabaseConfig {
@@ -437,7 +437,7 @@ fn default_timeout() -> u64 {
 }
 
 fn default_memory_base_url() -> String {
-    "http://govail-memory:8095".to_string()
+    "http://slicerag:8095".to_string()
 }
 
 fn default_memory_max_chunks() -> u32 {
@@ -469,7 +469,7 @@ fn default_langfuse_capture() -> String {
 }
 
 fn default_router_decide_url() -> String {
-    "http://govail-router:15000/decide".to_string()
+    "http://aegis-router:15000/decide".to_string()
 }
 
 fn default_router_timeout_ms() -> u64 {
@@ -481,7 +481,7 @@ fn default_router_fallback() -> String {
 }
 
 fn default_runtime_base_url() -> String {
-    "http://govail-runtime:8092".to_string()
+    "http://aegis-runtime:8092".to_string()
 }
 
 fn default_router_max_hops() -> u8 {

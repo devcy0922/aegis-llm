@@ -86,7 +86,7 @@ async fn shutdown_signal() {
 async fn health() -> impl IntoResponse {
     Json(json!({
         "status": "ok",
-        "service": "govail-gateway"
+        "service": "aegis-gateway"
     }))
 }
 
@@ -100,7 +100,7 @@ async fn metrics(State(state): State<AppState>) -> impl IntoResponse {
 
 async fn models(state: State<AppState>, headers: HeaderMap) -> Result<Response, Response> {
     let _trace_id = headers
-        .get("X-GoVail-Trace-Id")
+        .get("X-Aegis-Trace-Id")
         .or_else(|| headers.get("x-trace-id"))
         .and_then(|value| value.to_str().ok())
         .map(ToString::to_string)
@@ -197,7 +197,7 @@ async fn chat_completions(
     let started = Instant::now();
     let wall_started = Utc::now();
     let trace_id = headers
-        .get("X-GoVail-Trace-Id")
+        .get("X-Aegis-Trace-Id")
         .or_else(|| headers.get("x-trace-id"))
         .and_then(|value| value.to_str().ok())
         .map(ToString::to_string)
@@ -428,7 +428,7 @@ async fn chat_completions(
             audit_guard.complete();
 
             let approval_id = format!("appr-{}", &trace_id[..8]);
-            let approval_url = format!("http://govail-dashboard/approvals/{}", approval_id);
+            let approval_url = format!("http://aegis-dashboard/approvals/{}", approval_id);
             return Err((
                 StatusCode::CONFLICT,
                 Json(json!({
@@ -680,7 +680,7 @@ async fn responses(
     let started = Instant::now();
     let wall_started = Utc::now();
     let trace_id = headers
-        .get("X-GoVail-Trace-Id")
+        .get("X-Aegis-Trace-Id")
         .or_else(|| headers.get("x-trace-id"))
         .and_then(|value| value.to_str().ok())
         .map(ToString::to_string)
@@ -956,7 +956,7 @@ async fn responses(
 
             if let Some(cj) = converted_json {
                 let mut builder = Response::builder().status(response.status());
-                builder = builder.header("X-GoVail-Trace-Id", &trace_id);
+                builder = builder.header("X-Aegis-Trace-Id", &trace_id);
                 builder = builder.header("content-type", "application/json");
                 let body_bytes = serde_json::to_vec(&cj).unwrap_or_default();
                 builder
@@ -1012,7 +1012,7 @@ async fn embeddings(
     let started = Instant::now();
     let wall_started = Utc::now();
     let trace_id = headers
-        .get("X-GoVail-Trace-Id")
+        .get("X-Aegis-Trace-Id")
         .or_else(|| headers.get("x-trace-id"))
         .and_then(|value| value.to_str().ok())
         .map(ToString::to_string)

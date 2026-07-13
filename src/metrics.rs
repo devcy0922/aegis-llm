@@ -37,19 +37,19 @@ impl GatewayMetrics {
         let mut out = String::new();
         let _ = writeln!(
             out,
-            "# HELP govail_requests_total Total gateway requests\n# TYPE govail_requests_total counter\n{}",
-            metric("govail_requests_total", self.inner.requests_total.load(Ordering::Relaxed))
+            "# HELP aegis_requests_total Total gateway requests\n# TYPE aegis_requests_total counter\n{}",
+            metric("aegis_requests_total", self.inner.requests_total.load(Ordering::Relaxed))
         );
         let _ = writeln!(
             out,
-            "# HELP govail_blocked_total Requests blocked by policy or security checks\n# TYPE govail_blocked_total counter\n{}",
-            metric("govail_blocked_total", self.inner.blocked_total.load(Ordering::Relaxed))
+            "# HELP aegis_blocked_total Requests blocked by policy or security checks\n# TYPE aegis_blocked_total counter\n{}",
+            metric("aegis_blocked_total", self.inner.blocked_total.load(Ordering::Relaxed))
         );
         let _ = writeln!(
             out,
-            "# HELP govail_upstream_errors_total Upstream proxy errors\n# TYPE govail_upstream_errors_total counter\n{}",
+            "# HELP aegis_upstream_errors_total Upstream proxy errors\n# TYPE aegis_upstream_errors_total counter\n{}",
             metric(
-                "govail_upstream_errors_total",
+                "aegis_upstream_errors_total",
                 self.inner.upstream_errors_total.load(Ordering::Relaxed)
             )
         );

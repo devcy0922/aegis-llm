@@ -108,12 +108,12 @@ pub fn should_call_router(config: &GatewayConfig, headers: &HeaderMap, payload: 
         }
     }
 
-    let route_source = header_str(headers, "x-govail-route-source");
+    let route_source = header_str(headers, "x-aegis-route-source");
     if route_source.as_deref() == Some("runtime") {
         return false;
     }
 
-    let route_target = header_str(headers, "x-govail-route-target");
+    let route_target = header_str(headers, "x-aegis-route-target");
     if route_target.as_deref() == Some("llm") {
         return false;
     }
@@ -123,7 +123,7 @@ pub fn should_call_router(config: &GatewayConfig, headers: &HeaderMap, payload: 
 }
 
 pub fn hop_count(headers: &HeaderMap) -> u8 {
-    header_str(headers, "x-govail-route-hop")
+    header_str(headers, "x-aegis-route-hop")
         .and_then(|value| value.parse::<u8>().ok())
         .unwrap_or(0)
 }
@@ -205,8 +205,8 @@ pub fn decision_finding(decision: &RouteDecision) -> String {
 fn extract_route_mode(payload: &Value) -> String {
     payload
         .get("metadata")
-        .and_then(|metadata| metadata.get("govail"))
-        .and_then(|govail| govail.get("route_mode"))
+        .and_then(|metadata| metadata.get("aegis"))
+        .and_then(|aegis| aegis.get("route_mode"))
         .and_then(|value| value.as_str())
         .or_else(|| payload.get("route_mode").and_then(|value| value.as_str()))
         .unwrap_or("auto")
@@ -214,7 +214,7 @@ fn extract_route_mode(payload: &Value) -> String {
 }
 
 fn extract_client(headers: &HeaderMap, payload: &Value) -> Option<String> {
-    header_str(headers, "x-govail-client")
+    header_str(headers, "x-aegis-client")
         .or_else(|| {
             payload
                 .get("metadata")
