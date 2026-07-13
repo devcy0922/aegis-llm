@@ -180,7 +180,7 @@ impl LangfuseClient {
                 }
             ],
             "metadata": {
-                "sdk_name": "govail-gateway",
+                "sdk_name": "aegis-gateway",
                 "sdk_version": env!("CARGO_PKG_VERSION")
             }
         });
@@ -260,7 +260,7 @@ impl LangfuseClient {
                 }
             ],
             "metadata": {
-                "sdk_name": "govail-gateway",
+                "sdk_name": "aegis-gateway",
                 "sdk_version": env!("CARGO_PKG_VERSION")
             }
         });

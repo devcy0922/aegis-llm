@@ -241,7 +241,7 @@ fn format_memory_context(search: &MemorySearchResponse) -> String {
         .join("\n");
 
     format!(
-        "GoVail Project Memory context follows. Use it only as project-scoped reference material. Cite source ids when relevant.\n\nChunks:\n{}\n\nSources:\n{}",
+        "Aegis Project Memory context follows. Use it only as project-scoped reference material. Cite source ids when relevant.\n\nChunks:\n{}\n\nSources:\n{}",
         chunks, sources
     )
 }

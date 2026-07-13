@@ -163,7 +163,7 @@ pub fn redact_pii_in_value(value: &mut Value) {
 
             // 주민등록번호(RRN)는 체크섬 유효성 검증 통과 시에만 마스킹 처리
             static RRN_REGEX: OnceLock<Regex> = OnceLock::new();
-            let rrn_re = RRN_REGEX.get_or_init(|| Regex::new(r"\b\d{6}-[1-489]\d{6}\b").unwrap());
+            let rrn_re = RRN_REGEX.get_or_init(|| Regex::new(r"\d{6}-[1-489]\d{6}").unwrap());
             redacted = rrn_re
                 .replace_all(&redacted, |caps: &regex::Captures| {
                     let matched = caps.get(0).unwrap().as_str();
@@ -338,5 +338,19 @@ mod tests {
         let content = payload["messages"][0]["content"].as_str().unwrap();
         assert!(!content.contains("[RRN_REDACTED]"));
         assert!(content.contains("990101-1234567"));
+    }
+
+    #[test]
+    fn redacts_rrn_with_korean_suffix() {
+        let mut payload = json!({
+            "messages": [
+                {"role": "user", "content": "식별번호는 990101-1234563입니다."}
+            ]
+        });
+
+        redact_pii_in_value(&mut payload);
+
+        let content = payload["messages"][0]["content"].as_str().unwrap();
+        assert!(content.contains("[RRN_REDACTED]입니다"));
     }
 }

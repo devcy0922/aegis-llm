@@ -36,7 +36,7 @@ impl ProxyClient {
             .client
             .get(&url)
             .header("Authorization", format!("Bearer {api_key}"))
-            .header("X-GoVail-Trace-Id", trace_id)
+            .header("X-Aegis-Trace-Id", trace_id)
             .send()
             .await
         {
@@ -125,7 +125,7 @@ impl ProxyClient {
         let mut request = self
             .client
             .request(Method::POST, url)
-            .header("X-GoVail-Trace-Id", trace_id);
+            .header("X-Aegis-Trace-Id", trace_id);
 
         if let Some(ref pr) = principal {
             request = request
@@ -152,7 +152,7 @@ impl ProxyClient {
 
         let mut builder = Response::builder()
             .status(status)
-            .header("X-GoVail-Trace-Id", trace_id);
+            .header("X-Aegis-Trace-Id", trace_id);
         copy_response_headers(&headers, builder.headers_mut().expect("headers"));
 
         if let Some(headers_mut) = builder.headers_mut() {
@@ -214,7 +214,7 @@ impl ProxyClient {
         let mut request = self
             .client
             .request(method, url)
-            .header("X-GoVail-Trace-Id", trace_id);
+            .header("X-Aegis-Trace-Id", trace_id);
 
         if let Some(ref pr) = principal {
             request = request
@@ -261,7 +261,7 @@ impl ProxyClient {
 
         let mut builder = Response::builder()
             .status(status)
-            .header("X-GoVail-Trace-Id", trace_id);
+            .header("X-Aegis-Trace-Id", trace_id);
         copy_response_headers(&headers, builder.headers_mut().expect("headers"));
         builder.body(body).map_err(ProxyError::Build)
     }
@@ -278,7 +278,7 @@ impl ProxyClient {
         let mut request = self
             .client
             .request(method, url)
-            .header("X-GoVail-Trace-Id", trace_id);
+            .header("X-Aegis-Trace-Id", trace_id);
 
         if let Some(ref pr) = principal {
             request = request
@@ -329,7 +329,7 @@ impl ProxyJsonResponse {
 
     pub fn into_response(self) -> Result<Response<Body>, ProxyError> {
         let mut builder = Response::builder().status(self.status);
-        builder = builder.header("X-GoVail-Trace-Id", &self.trace_id);
+        builder = builder.header("X-Aegis-Trace-Id", &self.trace_id);
         copy_response_headers(&self.headers, builder.headers_mut().expect("headers"));
         builder
             .body(Body::from(self.body))
