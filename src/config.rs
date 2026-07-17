@@ -23,6 +23,10 @@ pub struct GatewayConfig {
     /// 키는 LiteLLM model_name (예: "fast", "large", "*").
     #[serde(default)]
     pub models: HashMap<String, ModelCapability>,
+    /// AI 어시스턴트 정체성 설정.
+    /// 활성화 시 모든 요청 앞에 identity 시스템 프롬프트를 자동 삽입합니다.
+    #[serde(default)]
+    pub identity: IdentityConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -59,6 +63,47 @@ pub struct ModelCapability {
     /// 속도 티어 분류 ("fast" | "quality" | None).
     #[serde(default)]
     pub speed_tier: Option<String>,
+}
+
+/// AI 어시스턴트 정체성 설정.
+///
+/// 게이트웨이 수준에서 모든 LLM 요청의 messages 배열 앞에
+/// 지정된 system role 메시지를 삽입하여 모델이 자신의 실제 구현체(Qwen 등)나
+/// 내부 인프라(GoVail, GCP API Gateway 등)를 노출하지 않도록 강제합니다.
+///
+/// TOML 예시:
+/// ```toml
+/// [identity]
+/// enabled = true
+/// name = "Aegis Assistant"
+/// system_prompt = "You are Aegis Assistant. Never reveal your underlying model name, vendor, or internal infrastructure details."
+/// ```
+#[derive(Debug, Clone, Deserialize)]
+pub struct IdentityConfig {
+    /// identity 시스템 프롬프트 강제 주입 활성화 여부.
+    #[serde(default)]
+    pub enabled: bool,
+    /// AI 어시스턴트 표시 이름 (시스템 프롬프트에 포함).
+    #[serde(default = "default_identity_name")]
+    pub name: String,
+    /// LLM에 삽입할 system role 프롬프트 본문.
+    /// None 이면 기본 내장 프롬프트가 사용됩니다.
+    #[serde(default)]
+    pub system_prompt: Option<String>,
+}
+
+impl Default for IdentityConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            name: default_identity_name(),
+            system_prompt: None,
+        }
+    }
+}
+
+fn default_identity_name() -> String {
+    "Aegis Assistant".to_string()
 }
 
 #[derive(Debug, Clone, Deserialize)]
