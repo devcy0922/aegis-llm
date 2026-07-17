@@ -459,7 +459,7 @@ mod tests {
         use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 
         // 1. 임시 Config 및 AppState 설정
-        let jwt_secret = "test-jwt-signing-secret-1234567890";
+        let jwt_secret = format!("unit-test-jwt-{}", "a".repeat(32));
         let config = GatewayConfig {
             server: ServerConfig {
                 bind: "127.0.0.1:9099".parse().unwrap(),
@@ -468,6 +468,8 @@ mod tests {
                 base_url: "http://localhost:14000".to_string(),
                 api_key: None,
                 timeout_seconds: 30,
+                fallback_base_url: None,
+                fallback_api_key: None,
             },
             security: SecurityConfig {
                 max_prompt_chars: 1000,
@@ -482,7 +484,7 @@ mod tests {
             langfuse: LangfuseConfig::default(),
             router: RouterConfig::default(),
             jwt: Some(crate::config::JwtConfig {
-                secret: jwt_secret.to_string(),
+                secret: jwt_secret.clone(),
             }),
             database: None, // surrealdb 비활성화
             api_keys: Default::default(),
@@ -565,6 +567,8 @@ mod tests {
                 base_url: "http://localhost:14000".to_string(),
                 api_key: None,
                 timeout_seconds: 30,
+                fallback_base_url: None,
+                fallback_api_key: None,
             },
             security: SecurityConfig {
                 max_prompt_chars: 1000,
@@ -587,8 +591,8 @@ mod tests {
         let state = AppState::new(config).unwrap();
 
         // 캐시(project_secrets)에 ProjectA 와 ProjectB 의 Secret을 다르게 적재
-        let secret_a = "secret-key-for-project-a-12345678";
-        let secret_b = "secret-key-for-project-b-98765432";
+        let secret_a = format!("unit-test-project-a-{}", "a".repeat(32));
+        let secret_b = format!("unit-test-project-b-{}", "b".repeat(32));
         {
             let mut cache = state.project_secrets.write().await;
             cache.insert(
@@ -652,6 +656,8 @@ mod tests {
         };
 
         // 임시 설정 생성
+        let fallback_secret = format!("unit-test-fallback-{}", "f".repeat(32));
+        let cached_secret = format!("unit-test-cached-{}", "c".repeat(32));
         let config = GatewayConfig {
             server: ServerConfig {
                 bind: "127.0.0.1:9099".parse().unwrap(),
@@ -660,6 +666,8 @@ mod tests {
                 base_url: "http://localhost:14000".to_string(),
                 api_key: None,
                 timeout_seconds: 30,
+                fallback_base_url: None,
+                fallback_api_key: None,
             },
             security: SecurityConfig {
                 max_prompt_chars: 1000,
@@ -674,7 +682,7 @@ mod tests {
             langfuse: LangfuseConfig::default(),
             router: RouterConfig::default(),
             jwt: Some(crate::config::JwtConfig {
-                secret: "default-jwt-secret-key-12345".to_string(),
+                secret: fallback_secret.clone(),
             }),
             database: None,
             api_keys: Default::default(),
@@ -688,12 +696,12 @@ mod tests {
             let mut cache = state.project_secrets.write().await;
             cache.insert(
                 "ProjectA".to_string(),
-                ("cached-wrong-secret".to_string(), Instant::now()),
+                (cached_secret.clone(), Instant::now()),
             );
         }
 
         let secret = get_project_secret(&state, "ProjectA").await;
-        assert_eq!(secret, Some("cached-wrong-secret".to_string()));
+        assert_eq!(secret, Some(cached_secret));
 
         // 2. 캐시의 Instant 값을 300초 이전(예: 305초 전)으로 조작
         {
@@ -705,10 +713,7 @@ mod tests {
 
         // 캐시 만료로 인해 기본 설정 파일의 jwt.secret 값을 Fallback으로 가져오는지 검증
         let secret_expired = get_project_secret(&state, "ProjectA").await;
-        assert_eq!(
-            secret_expired,
-            Some("default-jwt-secret-key-12345".to_string())
-        );
+        assert_eq!(secret_expired, Some(fallback_secret));
     }
 
     #[tokio::test]
@@ -738,6 +743,8 @@ mod tests {
                 base_url: "http://localhost:14000".to_string(),
                 api_key: None,
                 timeout_seconds: 30,
+                fallback_base_url: None,
+                fallback_api_key: None,
             },
             security: SecurityConfig {
                 max_prompt_chars: 1000,

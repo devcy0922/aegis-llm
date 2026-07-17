@@ -131,6 +131,8 @@ mod tests {
                 base_url: "http://litellm:14000".to_string(),
                 api_key: None,
                 timeout_seconds: 30,
+                fallback_base_url: None,
+                fallback_api_key: None,
             },
             security: SecurityConfig {
                 max_prompt_chars: 20_000,
@@ -145,7 +147,7 @@ mod tests {
             langfuse: LangfuseConfig::default(),
             router: RouterConfig::default(),
             jwt: Some(JwtConfig {
-                secret: "test-secret".to_string(),
+                secret: format!("unit-test-jwt-{}", "m".repeat(32)),
             }),
             database: None::<DatabaseConfig>,
             api_keys: HashMap::new(),
