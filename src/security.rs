@@ -94,12 +94,18 @@ fn find_prompt_injection(prompt: &str) -> Vec<SecurityFinding> {
         "print the hidden prompt",
         "dump the system message",
         "show the developer message",
+        "system prompt bypass",
+        "forget your instructions",
         "이전 지시를 무시",
         "시스템 프롬프트를 공개",
         "시스템 프롬프트를 출력",
         "시스템 프롬프트 보여",
         "숨겨진 프롬프트를 공개",
         "숨겨진 프롬프트를 출력",
+        "명령을 무시",
+        "가드레일 우회",
+        "가드레일 해제",
+        "보안 가이드 무시",
     ];
 
     patterns
@@ -110,6 +116,20 @@ fn find_prompt_injection(prompt: &str) -> Vec<SecurityFinding> {
             detail: (*pattern).to_string(),
         })
         .collect()
+}
+
+pub fn is_prompt_leakage(text: &str) -> bool {
+    let lowered = text.to_lowercase();
+    let patterns = [
+        "현재 판단:",
+        "현재 판단 :",
+        "판단 근거:",
+        "판단 근거 :",
+        "가장 큰 위험",
+        "다음 실행 단계",
+    ];
+
+    patterns.iter().any(|pattern| lowered.contains(&pattern.to_lowercase()))
 }
 
 fn find_secret_patterns(prompt: &str) -> Vec<SecurityFinding> {
@@ -352,5 +372,14 @@ mod tests {
 
         let content = payload["messages"][0]["content"].as_str().unwrap();
         assert!(content.contains("[RRN_REDACTED]입니다"));
+    }
+
+    #[test]
+    fn detects_prompt_leakage() {
+        assert!(is_prompt_leakage("현재 판단: 분석 중입니다."));
+        assert!(is_prompt_leakage("내부 판단 근거 : 사용자 모델 조회 요청"));
+        assert!(is_prompt_leakage("가장 큰 위험요소는 없습니다."));
+        assert!(is_prompt_leakage("다음 실행 단계 순서와 룰에 근거함."));
+        assert!(!is_prompt_leakage("이것은 안전한 일반 텍스트 대화입니다."));
     }
 }
