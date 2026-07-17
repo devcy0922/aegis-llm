@@ -9,3 +9,7 @@ agents/
 target/
 logs/
 *.log
+
+# 실제 운영 게이트웨이 설정 (사내 전용, 퍼블릭 커밋 금지)
+# configs/gateway.example.toml 만 커밋 허용
+configs/gateway.toml
