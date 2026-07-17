@@ -595,6 +595,11 @@ fn check_egress_danger(text: &str, deny_patterns: Option<&[String]>) -> Option<S
         }
     }
 
+    // 1-1. 시스템 프롬프트 유출(Prompt Leakage) 감지
+    if crate::security::is_prompt_leakage(text) {
+        return Some("prompt_leakage".to_string());
+    }
+
     // 주민등록번호(RRN)는 체크섬 유효성 검증을 필히 적용
     static RRN_REGEX: OnceLock<Regex> = OnceLock::new();
     let rrn_re = RRN_REGEX.get_or_init(|| Regex::new(r"\b\d{6}-[1-489]\d{6}\b").unwrap());
@@ -781,5 +786,50 @@ mod tests {
         let content = std::fs::read_to_string(temp_file.path()).unwrap();
         assert!(content.contains("egress_blocked"));
         assert!(content.contains("egress_dlp:openai_key"));
+    }
+
+    #[tokio::test]
+    async fn blocks_prompt_leakage_sse_stream() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let logger = AuditLogger::new(temp_file.path().to_path_buf());
+
+        let event = AuditEvent {
+            ts: Utc::now(),
+            trace_id: "leakage-trace".to_string(),
+            key_id: "test_key".to_string(),
+            key_hash: "hash".to_string(),
+            project: "test_project".to_string(),
+            model: Some("test_model".to_string()),
+            route: "test_route".to_string(),
+            status: "proxied".to_string(),
+            finding: None,
+            memory: None,
+            latency_ms: 10,
+            request: None,
+            response: None,
+        };
+
+        let chunk1 = Bytes::from("data: {\"choices\":[{\"delta\":{\"content\":\"Hello. \"}}]}\n\n");
+        let chunk2 = Bytes::from("data: {\"choices\":[{\"delta\":{\"content\":\"현재 판단: 모델 조회가 시도되었습니다. \"}}]}\n\n");
+
+        let raw_stream = stream::iter(vec![Ok(chunk1), Ok(chunk2)]);
+
+        let mut filtered_stream =
+            EgressFilterStream::new(raw_stream, Some((logger, event)), None, None, None, None);
+
+        let res1 = filtered_stream.next().await;
+        assert!(res1.is_some());
+        assert!(res1.unwrap().is_ok());
+
+        let res2 = filtered_stream.next().await;
+        assert!(res2.is_some());
+        let err = res2.unwrap().unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
+
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+
+        let content = std::fs::read_to_string(temp_file.path()).unwrap();
+        assert!(content.contains("egress_blocked"));
+        assert!(content.contains("egress_dlp:prompt_leakage"));
     }
 }
