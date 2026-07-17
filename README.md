@@ -70,12 +70,12 @@ API Key별로 분당 요청 수(RPM)를 제한하는 슬라이딩 윈도우 방�
 **설정 방법 (TOML)**
 
 ```toml
-[api_keys.my-service-key]
-project = "my-project"
+[api_keys."<RANDOM_API_KEY>"]
+project = "example-project"
 role    = "user"
 rpm     = 60          # 기본값: 120
 
-[api_keys.admin-key]
+[api_keys."<RANDOM_ADMIN_KEY>"]
 project = "ops"
 role    = "admin"
 rpm     = 300
@@ -85,7 +85,7 @@ rpm     = 300
 
 ```bash
 # 형식: key:project:role:rpm
-AEGIS_API_KEYS="example-key:myproject:user:60,example-key:ops:admin:300"
+GOVAIL_API_KEYS="<RANDOM_API_KEY>:example-project:user:60,<RANDOM_ADMIN_KEY>:ops:admin:300"
 ```
 
 ---
@@ -173,7 +173,8 @@ docker run -p 8080:8080 \
 | 변수 | 설명 |
 |---|---|
 | `GOVAIL_CONFIG` | 불러올 TOML 설정 파일 경로 (기본: `configs/gateway.example.toml`) |
-| `AEGIS_API_KEYS` | 쉼표 구분 정적 API Key (형식: `key:project:role[:rpm]`) |
+| `GOVAIL_API_KEYS` | 쉼표 구분 런타임 API Key 매핑 (형식: `key:project:role[:rpm]`) |
+| `GOVAIL_UPSTREAM_API_KEY` | 업스트림 호출용 자격증명(런타임 주입 필수) |
 | `RUST_LOG` | 로그 레벨 (기본: `aegis_llm=info,tower_http=info`) |
 
 ---
@@ -200,12 +201,10 @@ AegisLLM은 Upstream LLM 장애 상황에 대응하기 위해 다음과 같은 �
 
 ## 벤치마크 및 검증 (Benchmark & Validation)
 
-본 프로젝트의 지연 시간 및 처리량 성능 검증 결과는 다음과 같습니다. (상세 측정 방법은 [AgentSecOps Playground](file:///path/to/project/devcy0922_port/agentsecops-playground) E2E 테스트 스케줄러 참조)
+본 프로젝트의 지연 시간 및 처리량 성능 검증 결과는 다음과 같습니다. 상세 측정 방법은 AgentSecOps Playground의 E2E 테스트 스케줄러를 참조합니다.
 
 ### 테스트 환경
-- 공개 저장소에서는 로컬 장비 사양을 공개하지 않습니다.
-- 공개 저장소에서는 로컬 장비 사양을 공개하지 않습니다.
-- 공개 저장소에서는 로컬 장비 사양을 공개하지 않습니다.
+- **실행 경계**: 격리된 ARM64 Linux 컨테이너
 - **동시성 (Concurrency)**: 50 Concurrent Connections
 - **측정 도구**: `wrk -t4 -c50 -d30s`
 

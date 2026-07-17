@@ -396,15 +396,16 @@ mod tests {
 
     #[test]
     fn redacts_secrets_and_pii_recursively() {
+        let synthetic_provider_token = format!("{}-{}", "sk", "x".repeat(32));
         let value = json!({
-            "messages": [{"content": "mail me at admin@example.com with sk-abcdefghijklmnopqrstuvwxyz123456"}],
+            "messages": [{"content": format!("mail me at admin@example.com with {synthetic_provider_token}")}],
             "headers": {"authorization": "Bearer raw-token"}
         });
 
         let redacted = redact_value(value);
         let raw = redacted.to_string();
         assert!(!raw.contains("admin@example.com"));
-        assert!(!raw.contains("sk-abcdefghijklmnopqrstuvwxyz123456"));
+        assert!(!raw.contains(&synthetic_provider_token));
         assert!(!raw.contains("raw-token"));
         assert!(raw.contains("[REDACTED]"));
     }

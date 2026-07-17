@@ -1,0 +1,11 @@
+# 로컬 에이전트 지침
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+agents/
+
+# 런타임 및 비밀 설정
+.env
+target/
+logs/
+*.log

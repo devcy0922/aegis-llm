@@ -209,6 +209,13 @@ impl GatewayConfig {
             }
         }
 
+        // 업스트림 자격증명은 공개 설정 파일이 아닌 런타임 환경에서 주입한다.
+        if let Ok(upstream_key) = std::env::var("GOVAIL_UPSTREAM_API_KEY") {
+            if !upstream_key.is_empty() {
+                cfg.upstream.api_key = Some(upstream_key);
+            }
+        }
+
         if let Ok(fallback_url) = std::env::var("GOVAIL_FALLBACK_UPSTREAM_URL") {
             if !fallback_url.is_empty() {
                 cfg.upstream.fallback_base_url = Some(fallback_url);
