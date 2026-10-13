@@ -448,7 +448,7 @@ impl GatewayConfig {
 
     fn validate(&self) -> anyhow::Result<()> {
         if self.jwt.is_none() && self.database.is_none() && self.api_keys.is_empty() {
-            anyhow::bail!("REDACTED_TEST_SECRET");
+            anyhow::bail!("Either JWT secret [jwt], Database config [database], or Static API keys must be configured for authentication");
         }
 
         if self.security.max_prompt_chars == 0 {
@@ -467,7 +467,7 @@ impl GatewayConfig {
                 || self.langfuse.secret_key.as_deref().unwrap_or("").is_empty()
             {
                 anyhow::bail!(
-                    "REDACTED_TEST_SECRET"
+                    "LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are required when Langfuse is enabled"
                 );
             }
             if self.langfuse.capture != "redacted" && self.langfuse.capture != "metadata_only" {

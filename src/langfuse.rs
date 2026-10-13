@@ -117,7 +117,7 @@ impl LangfuseClient {
             .langfuse
             .secret_key
             .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("REDACTED_TEST_SECRET"))?;
+            .ok_or_else(|| anyhow::anyhow!("missing Langfuse secret key"))?;
         let url = ingestion_url(&self.config.langfuse.host)?;
         let generation_id = Uuid::new_v4().to_string();
         let input = self.capture_value(record.input);
@@ -238,7 +238,7 @@ impl LangfuseClient {
             .langfuse
             .secret_key
             .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("REDACTED_TEST_SECRET"))?;
+            .ok_or_else(|| anyhow::anyhow!("missing Langfuse secret key"))?;
         let url = ingestion_url(&self.config.langfuse.host)?;
         let score_id = Uuid::new_v4().to_string();
         let now = Utc::now();

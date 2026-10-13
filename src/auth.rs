@@ -166,7 +166,7 @@ async fn get_project_secret(state: &AppState, project_id: &str) -> Option<String
         } else {
             clean_id
         };
-        let query = format!("REDACTED_TEST_SECRET", db_id);
+        let query = format!("SELECT jwt_secret FROM project:{}", db_id);
 
         match state
             .db_client
@@ -207,7 +207,7 @@ async fn get_project_secret(state: &AppState, project_id: &str) -> Option<String
                 return None;
             }
             Err(err) => {
-                tracing::error!(error = %err, project_id = %project_id, "REDACTED_TEST_SECRET");
+                tracing::error!(error = %err, project_id = %project_id, "failed to query project secret from SurrealDB");
             }
         }
     }
